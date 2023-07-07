@@ -1,19 +1,15 @@
 import urllib.request
-import tkinter.filedialog
-import pathlib
 import os
 from packaging.version import parse
 import webbrowser
-from psutil import virtual_memory
-import winshell
 from subprocess import call
 from minecraft_launcher_lib.forge import find_forge_version
+import library
 
 
 def get_version():
     version = input('Indiquer une version (x.x.x) : ')
     return version
-
 
 def download_server_jar(version, path):
     forge_version = find_forge_version(version)
@@ -21,6 +17,7 @@ def download_server_jar(version, path):
     url = "https://files.minecraftforge.net/maven/net/minecraftforge/forge/" \
           f"{forge_version}/forge-{forge_version}-installer.jar"
     size = urllib.request.urlopen(url).info()['Content-Length']
+    print(url)
     print('Téléchargement... ' + "(", round(int(size) / (1024 ** 2), 2), "Mo", ")")
     name = "forge_installer.jar"
     installation_path = path + name
@@ -28,15 +25,26 @@ def download_server_jar(version, path):
     urllib.request.urlretrieve(url, installation_path)
     # return name
 
+def get_name_server(server_path):
+    files = os.listdir(server_path)
+    name_server = ""
+    for file in files:
+        if "forge" in file:
+            name_server = file
+            break
+    if name_server == "":
+        print('Une erreur est survenue')
+        raise
+    return name_server
 
 def create_server():
     server_version = get_version()
-    path_installation_server = get_installation_directory()
+    path_installation_server = library.get_installation_directory()
     download_server_jar(server_version, path_installation_server)
     batch_installer_path = create_batch_installer_file(path_installation_server)
     create_batch_installer_content(batch_installer_path)
     run_batch_installer(batch_installer_path, path_installation_server)
-    batch_path = create_batch_file(path_installation_server)
+    batch_path = library.create_batch_file(path_installation_server)
     name_server = get_name_server(path_installation_server)
     create_batch_content(batch_path, server_version, name_server)
     print('Serveur créé')
@@ -46,22 +54,11 @@ def create_server():
     else:
         if not shortcut == "o":
             print('Choix incorrect, création du raccourci par défaut.')
-        create_shortcut(name_server, path_installation_server, batch_path)
+        library.create_shortcut(name_server, path_installation_server, batch_path)
     start = input('Souhaitez-vous l\'exécuter ? (o / n) : ')
     if start == 'o':
         os.chdir(path_installation_server)
         os.startfile(batch_path)
-
-
-def get_installation_directory():
-    print('Choisissez le répertoire d\'installation du fichier dans la fenêtre qui vient de s\'ouvrir.')
-    root = tkinter.Tk()
-    root.attributes("-alpha", 0)
-    path = tkinter.filedialog.askdirectory()
-    root.destroy()
-    root.mainloop()
-    return path + "/"
-
 
 def create_batch_installer_file(path):
     path_file = f'{path}/installer.bat'
@@ -69,31 +66,24 @@ def create_batch_installer_file(path):
     my_bat.close()
     return path_file
 
-
 def create_batch_installer_content(batch_path):
     my_batch = open(batch_path, 'w+')
     my_batch.write('java -jar forge_installer.jar --installServer')
     my_batch.close()
 
-
 def run_batch_installer(batch_installer_path, path_server):
     print('Installation du serveur...\n Merci de ne fermer aucune fenêtre.')
     os.chdir(path_server)
     call(batch_installer_path)
-    os.remove("installer.bat")
-    os.remove("installer.log")
-    os.remove("forge_installer.jar")
-
-
-def create_batch_file(path):
-    path_file = f'{path}/run.bat'
-    my_bat = open(path_file, 'w+')
-    my_bat.close()
-    return path_file
-
+    try:
+        os.remove("installer.bat")
+        os.remove("installer.log")
+        os.remove("forge_installer.jar")
+    except FileNotFoundError:
+        pass
 
 def create_batch_content(batch_path, server_version, name_server):
-    dict_with_java_version = get_installed_java()
+    dict_with_java_version = library.get_installed_java()
     # java
     while True:
         selection = input('Trouvez une version de java automatique ? (o / n) : ')
@@ -101,7 +91,7 @@ def create_batch_content(batch_path, server_version, name_server):
             java_path_argument = check_java_version(server_version, dict_with_java_version)
             break
         elif selection == 'n':
-            java_path_argument = locate_java_directory()
+            java_path_argument = library.locate_java_directory()
             break
         else:
             print("Choix incorrect")
@@ -109,7 +99,7 @@ def create_batch_content(batch_path, server_version, name_server):
     while True:
         selection = input('Paramètre RAM automatique ? (o / n) : ')
         if selection == 'o':
-            xmx, xms = get_ram_info()
+            xmx, xms = library.get_ram_info()
             break
         elif selection == 'n':
             xmx = int(input("Indiquer un nombre entier de RAM maximal (Xmx en Go) : "))
@@ -129,52 +119,11 @@ def create_batch_content(batch_path, server_version, name_server):
     my_batch.write(f'''\"{java_path_argument}\" -jar -Xmx{xmx}G -Xms{xms}G {name_server} {graphic_interface}\npause''')
     my_batch.close()
 
-
-def get_installed_java():
-    dict_jvm = {}
-    home = pathlib.Path.home().drive
-    # x64
-    try:
-        java_dir_x64 = os.path.join(home, '\\Program Files', 'Java')
-        print(f"Java dir x64 : {java_dir_x64}")
-        files = os.listdir(java_dir_x64)
-        for java_version in files:
-            try:
-                temp_dir = os.path.join(java_dir_x64, f'{java_version}', 'bin', 'java.exe')
-                temp_exists = os.path.exists(temp_dir)
-                print(f"Exists : {temp_exists} ; Java version dir (x64) : {temp_dir}")
-                if temp_exists:
-                    dict_jvm[java_version] = temp_dir
-            except FileNotFoundError:
-                print("Java version directory (x64) not found")
-    except FileNotFoundError:
-        print("Java directory (x64) not found")
-    # x86
-    try:
-        java_dir_x86 = os.path.join(home, '\\Program Files (x86)', 'Java')
-        print(f"Java dir x86 : {java_dir_x86}")
-        files = os.listdir(java_dir_x86)
-        for java_version in files:
-            try:
-                temp_dir = os.path.join(java_dir_x86, f'{java_version}', 'bin', 'java.exe')
-                temp_exists = os.path.exists(temp_dir)
-                print(f"Exists : {temp_exists} ; Java version dir (x86) : {temp_dir}")
-                if temp_exists:
-                    dict_jvm[java_version] = temp_dir
-            except FileNotFoundError:
-                print("Java version directory (x86) not found")
-    except FileNotFoundError:
-        print("Java directory (x86) not found")
-    finally:
-        print(f'Version found (x64 & x86) : {dict_jvm}')
-    return dict_jvm
-
-
 def check_java_version(version_minecraft, dict_with_java_version):
     if parse(version_minecraft) < parse("1.17"):
         # need java 1.8.0
         for key in dict_with_java_version:
-            if "jre1.8.0" in key:
+            if "jre-1.8" in key:
                 print('Java trouvé')
                 return dict_with_java_version[key]
 
@@ -182,7 +131,7 @@ def check_java_version(version_minecraft, dict_with_java_version):
         print('1- Localiser java manuellement\n2- Télécharger java manuellement')
         selection_1 = input('Indiquer une solution (1 ou 2) : ')
         if selection_1 == "1":
-            return locate_java_directory()
+            return library.locate_java_directory()
         elif selection_1 == "2":
             webbrowser.open("https://www.java.com/fr/download/manual.jsp")
             print("Une fois l'installation finit, merci de redémarrer le programme")
@@ -199,7 +148,7 @@ def check_java_version(version_minecraft, dict_with_java_version):
         print('1- Localiser java manuellement\n2- Télécharger java manuellement')
         selection_1 = input('Indiquer une solution (1 ou 2) : ')
         if selection_1 == "1":
-            return locate_java_directory()
+            return library.locate_java_directory()
         elif selection_1 == "2":
             webbrowser.open("https://www.java.com/fr/download/manual.jsp")
             print("Une fois l'installation fini, merci de redémarrer le programme")
@@ -207,69 +156,3 @@ def check_java_version(version_minecraft, dict_with_java_version):
 
     else:
         print("Une erreur est survenue")
-
-
-def locate_java_directory():
-    root = tkinter.Tk()
-    root.attributes("-alpha", 0)
-    filename = tkinter.filedialog.askopenfilename(initialdir="/",
-                                                  title="Select a File",
-                                                  filetypes=(
-                                                      ("Executable", "*.exe"),
-                                                      ('All files', '*.*')
-                                                  ))
-    root.destroy()
-    root.mainloop()
-    return filename
-
-
-def get_ram_info():
-    total = virtual_memory().total / (1024 ** 3)
-    if int(total) > 2:
-        if int(total) > 4:
-            if int(total) > 8:
-                if int(total) > 16:
-                    xmx = 10
-                    xms = xmx / 2
-                else:
-                    xmx = 6
-                    xms = xmx / 2
-            else:
-                xmx = 4
-                xms = xmx / 2
-        else:
-            xmx = 2
-            xms = xmx / 2
-    else:
-        if int(total) <= 1:
-            print('Erreur, niveau de RAM insuffisant')
-            raise
-        else:
-            print('Niveau de ram bas (Cela peut causer des lags serveur')
-            xmx = 1
-            xms = 1
-    xmx, xms = int(xmx), int(xms)
-    print(f'Xmx : {xmx}')
-    print(f'Xms : {xms}')
-    return xmx, xms
-
-
-def create_shortcut(name_server, path_server_directory, batch_path):
-    desktop = pathlib.Path(winshell.desktop())
-    link_filepath = str(desktop / f"{name_server}.lnk")
-    with winshell.shortcut(link_filepath) as link:
-        link.path = batch_path
-        link.working_directory = path_server_directory
-
-
-def get_name_server(server_path):
-    files = os.listdir(server_path)
-    name_server = ""
-    for file in files:
-        if "forge" in file:
-            name_server = file
-            break
-    if name_server == "":
-        print('Une erreur est survenue')
-        raise
-    return name_server

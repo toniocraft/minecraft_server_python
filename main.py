@@ -1,6 +1,10 @@
+import spongeforge
+import mohist
+import papermc
 import vanilla
 import forge
 import fabricmc
+# crucible/thermos pour mods et plugins ??
 list_type_server = "1. Mods & Plugins" \
                    "2. Mods" \
                    "3. Plugins" \
@@ -13,9 +17,17 @@ while True:
     selection = input('Entrez un nombre (1, 2, 3, 4 ou 5) : ')
     if selection == '1':
         # Mods & Plugins
-        # https://mohistmc.com/api
-        # https://repo.spongepowered.org/#browse/browse:maven-releases:org%2Fspongepowered%2Fspongeforge
-        pass
+        while True:
+            print('1- Mohist\n2- SpongeForge\n3- Retour')
+            selection = input("Quel type de serveur modded voulez vous ? (1, 2 ou 3) : ")
+            if selection == "1":
+                mohist.create_server()
+            elif selection == "2":
+                spongeforge.create_server()
+            elif selection == "3":
+                break
+            else:
+                print('Choix incorrect')
     elif selection == '2':
         # Mods
         while True:
@@ -31,10 +43,21 @@ while True:
                 print('Choix incorrect')
     elif selection == '3':
         # Plugins
+        while True:
+            print('1- PaperMC\n2- Glowstone\n3- Spigot/Bukkit\n4- Retour')
+            selection = input("Quel type de serveur avec plugin voulez vous ? (1, 2 ou 3) : ")
+            if selection == "1":
+                papermc.create_server()
+            elif selection == "2":
+                print("Soon")
+            elif selection == "3":
+                print("Soon")
+            elif selection == "4":
+                break
+            else:
+                print('Choix incorrect')
         # https://glowstone.net/#downloads
         # https://getbukkit.org/download/
-        # https://papermc.io/downloads -> https://api.papermc.io/v2/projects/paper donne une liste de version donc...
-        # ...récupérer la version la plus basse et la plus haute
         pass
     elif selection == '4':
         # Vanilla
